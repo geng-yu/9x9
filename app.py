@@ -10,83 +10,95 @@ import base64
 # 設定頁面排版
 st.set_page_config(page_title="九九乘法練習", layout="centered")
 
-# --- 自訂 CSS：鎖定畫面寬度、排版與大按鈕 ---
+# --- 自訂 CSS：鎖死左右滑動、置中卡片、大按鈕 ---
 st.markdown("""
-    <style>
-    /* 1. 徹底隱藏水平捲軸，禁止 iPad 左右滑動 */
-    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
-        overflow-x: hidden !important;
-        touch-action: pan-y !important; /* 只允許垂直滑動，禁止左右亂滑 */
-        width: 100%;
-        max-width: 100vw;
-    }
+<style>
+/* 1. 全局鎖死水平捲軸，iPad 無法左右滑動 */
+html, body, #root, .main,
+[data-testid="stAppViewContainer"],
+[data-testid="stMainBlockContainer"],
+.block-container {
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+    touch-action: pan-y !important;
+    box-sizing: border-box !important;
+}
 
-    /* 2. 題卡整體容器 */
-    .question-card {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        background-color: white;
-        padding: 15px 20px;
-        border-radius: 15px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-        margin-bottom: 20px;
-        width: 100%;
-        box-sizing: border-box; /* 確保 padding 不會撐破外框 */
-    }
+/* 2. 限制寬度在 iPad 最佳視覺範圍，避免超出螢幕邊界 */
+.block-container {
+    padding-top: 1.5rem !important;
+    padding-bottom: 2rem !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    max-width: 620px !important;
+    margin: 0 auto !important;
+}
 
-    /* 3. 左中右強制三等份，保證畫面不跳動 */
-    .q-left, .q-mid, .q-right {
-        flex: 1 1 0; 
-        width: 33.33%;
-    }
+/* 3. 題卡本體 */
+.question-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #ffffff;
+    padding: 12px 18px;
+    border-radius: 16px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.06);
+    margin-bottom: 16px;
+    width: 100%;
+    box-sizing: border-box;
+}
 
-    /* 左側：題目 */
-    .q-left {
-        font-size: 55px;
-        font-weight: bold;
-        color: #333;
-        text-align: left;
-        white-space: nowrap; /* 不換行 */
-    }
+/* 左側：題目 */
+.q-left {
+    flex: 1.1;
+    font-size: 42px;
+    font-weight: 800;
+    color: #222222;
+    text-align: left;
+    white-space: nowrap;
+}
 
-    /* 中間：輸入區 */
-    .q-mid {
-        text-align: center;
-    }
-    .q-mid-box {
-        display: inline-block;
-        font-size: 60px;
-        font-weight: bold;
-        background-color: #f0f2f6;
-        border-radius: 15px;
-        padding: 0 20px;
-        min-width: 110px;
-        height: 85px;
-        line-height: 85px;
-        color: #31333F;
-    }
+/* 中間：輸入框 */
+.q-mid {
+    flex: 0.9;
+    text-align: center;
+}
+.q-mid-box {
+    display: inline-block;
+    font-size: 44px;
+    font-weight: 800;
+    background-color: #f1f3f7;
+    border-radius: 12px;
+    width: 90px;
+    height: 64px;
+    line-height: 64px;
+    color: #2b3445;
+    text-align: center;
+}
 
-    /* 右側：回饋區 */
-    .q-right {
-        font-size: 22px;
-        text-align: right;
-        font-weight: bold;
-    }
+/* 右側：提示 */
+.q-right {
+    flex: 1;
+    font-size: 18px;
+    font-weight: bold;
+    text-align: right;
+    line-height: 1.3;
+}
 
-    /* 4. 把按鈕變大 */
-    div[data-testid="stButton"] button {
-        height: 80px;
-        border-radius: 15px;
-    }
-    div[data-testid="stButton"] button p {
-        font-size: 35px !important;
-        font-weight: bold !important;
-    }
-    </style>
+/* 4. 虛擬大按鈕 */
+div[data-testid="stButton"] button {
+    height: 72px;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+}
+div[data-testid="stButton"] button p {
+    font-size: 30px !important;
+    font-weight: bold !important;
+}
+</style>
 """, unsafe_allow_html=True)
 
-# --- 終極音效解決方案 (產生 Base64 音效) ---
+# --- 音效產生器 ---
 @st.cache_data
 def get_correct_audio():
     sample_rate, duration = 44100, 0.2
@@ -129,7 +141,7 @@ if "audio" not in st.session_state:
 if "current_input" not in st.session_state:
     st.session_state.current_input = ""
 
-# --- 處理按鈕動作的函式 ---
+# --- 處理按鈕動作 ---
 def press_digit(digit):
     if len(st.session_state.current_input) < 3:
         st.session_state.current_input += str(digit)
@@ -162,14 +174,13 @@ def submit_answer():
         st.session_state.feedback = "⭕ 答對了！"
         st.session_state.audio = "correct"
     else:
-        st.session_state.feedback = f"❌ 錯了！<br><span style='font-size:18px'>上一題 {n1}×{n2} = {correct_ans}</span>"
+        st.session_state.feedback = f"❌ 答錯了！<br><span style='font-size:15px; color:#555;'>正解: {correct_ans}</span>"
         st.session_state.audio = "wrong"
 
-    # 產生下一題
+    # 換下一題
     st.session_state.num1 = random.randint(2, 9)
     st.session_state.num2 = random.randint(1, 9)
     st.session_state.current_input = ""
-
 
 st.title("✖️ 九九乘法大挑戰")
 
@@ -178,47 +189,26 @@ if st.session_state.audio == "correct":
     st.markdown(get_correct_audio(), unsafe_allow_html=True)
 elif st.session_state.audio == "wrong":
     st.markdown(get_wrong_audio(), unsafe_allow_html=True)
-# 播放完立刻清空狀態
 st.session_state.audio = None
 
-# --- 2. 顯示：題目(左) + 輸入框(中) + 回饋(右) ---
+# --- 2. 題卡顯示（完全無多餘換行縮排，防止 Markdown 誤判成程式碼） ---
 n1 = st.session_state.num1
 n2 = st.session_state.num2
-
-# 根據對錯決定右側文字顏色
 feedback_color = "#28a745" if "⭕" in st.session_state.feedback else "#dc3545"
-# 決定中間要顯示的文字 (沒輸入時顯示問號)
 display_text = st.session_state.current_input if st.session_state.current_input else "?"
-# 如果沒有回饋文字，塞入不換行空格(&nbsp;)來撐住排版空間，防止變形
 feedback_html = st.session_state.feedback if st.session_state.feedback else "&nbsp;"
 
-st.markdown(f"""
-<div class="question-card">
-    
-    <!-- 左側：題目 -->
-    <div class="q-left">
-        {n1} × {n2} =
-    </div>
-    
-    <!-- 中間：輸入顯示區 -->
-    <div class="q-mid">
-        <div class="q-mid-box">
-            {display_text}
-        </div>
-    </div>
-    
-    <!-- 右側：對錯提示 -->
-    <div class="q-right" style="color: {feedback_color};">
-        {feedback_html}
-    </div>
-    
-</div>
-""", unsafe_allow_html=True)
-
-# 顯示完回饋後清空
+card_html = (
+    f'<div class="question-card">'
+    f'<div class="q-left">{n1} × {n2} =</div>'
+    f'<div class="q-mid"><div class="q-mid-box">{display_text}</div></div>'
+    f'<div class="q-right" style="color: {feedback_color};">{feedback_html}</div>'
+    f'</div>'
+)
+st.markdown(card_html, unsafe_allow_html=True)
 st.session_state.feedback = ""
 
-# --- 3. 虛擬數字九宮格按鈕 ---
+# --- 3. 虛擬九宮格按鈕 ---
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -241,7 +231,7 @@ with col3:
 
 st.divider()
 
-# --- 4. 家長查看區 ---
+# --- 4. 記錄區 ---
 st.subheader("📊 本次練習記錄")
 
 if st.session_state.logs:
