@@ -1,27 +1,29 @@
 import streamlit as st
 import random
 import pandas as pd
-import streamlit.components.v1 as components
+import math
+import wave
+import struct
+import io
+import base64
 
 # 設定頁面排版
 st.set_page_config(page_title="九九乘法練習", layout="centered")
 
-# --- 自訂 CSS：把按鈕字體與顯示框變大，適合 iPad 點擊 ---
+# --- 自訂 CSS：把按鈕字體與顯示框變大 ---
 st.markdown("""
     <style>
-    /* 顯示輸入數字的螢幕 */
     .input-screen {
         font-size: 60px;
         font-weight: bold;
         text-align: center;
         background-color: #f0f2f6;
         border-radius: 15px;
-        padding: 15px;
+        padding: 10px;
         margin-bottom: 20px;
         color: #31333F;
         min-height: 90px;
     }
-    /* 把所有按鈕變大 */
     div[data-testid="stButton"] button {
         height: 80px;
         border-radius: 15px;
@@ -33,39 +35,38 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 音效產生器 ---
-def get_audio_js(sound_type):
-    if sound_type == "correct":
-        return """
-        <script>
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        function beep(freq, delay, dur) {
-            setTimeout(() => {
-                let osc = ctx.createOscillator();
-                let gain = ctx.createGain();
-                osc.connect(gain); gain.connect(ctx.destination);
-                osc.frequency.value = freq;
-                osc.start();
-                gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
-            }, delay);
-        }
-        beep(587.33, 0, 0.2);   
-        beep(880.00, 150, 0.4); 
-        </script>
-        """
-    else:
-        return """
-        <script>
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        let osc = ctx.createOscillator();
-        let gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.type = "sawtooth";
-        osc.frequency.value = 150;
-        osc.start();
-        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
-        </script>
-        """
+# --- 終極音效解決方案 (Python 內建生成音效，不怕 iPad 阻擋) ---
+@st.cache_data
+def get_correct_audio():
+    # 產生清脆的高音 (Ding)
+    sample_rate, duration = 44100, 0.2
+    buf = io.BytesIO()
+    with wave.open(buf, 'wb') as f:
+        f.setnchannels(1)
+        f.setsampwidth(2)
+        f.setframerate(sample_rate)
+        for i in range(int(sample_rate * duration)):
+            val = int(32767 * 0.4 * math.sin(2.0 * math.pi * 880 * i / sample_rate))
+            f.writeframesraw(struct.pack('<h', val))
+    b64 = base64.b64encode(buf.getvalue()).decode()
+    return f'<audio autoplay src="data:audio/wav;base64,{b64}"></audio>'
+
+@st.cache_data
+def get_wrong_audio():
+    # 產生低沈的警告音 (Buzzer)
+    sample_rate, duration = 44100, 0.3
+    buf = io.BytesIO()
+    with wave.open(buf, 'wb') as f:
+        f.setnchannels(1)
+        f.setsampwidth(2)
+        f.setframerate(sample_rate)
+        period = sample_rate / 150.0
+        for i in range(int(sample_rate * duration)):
+            # 方波 (Square wave) 聽起來比較像警告音
+            val = int(32767 * 0.2 * (1 if (i % period) < (period/2) else -1))
+            f.writeframesraw(struct.pack('<h', val))
+    b64 = base64.b64encode(buf.getvalue()).decode()
+    return f'<audio autoplay src="data:audio/wav;base64,{b64}"></audio>'
 
 # --- 初始化狀態變數 ---
 if "logs" not in st.session_state:
@@ -74,16 +75,14 @@ if "num1" not in st.session_state:
     st.session_state.num1 = random.randint(2, 9)
     st.session_state.num2 = random.randint(1, 9)
 if "feedback" not in st.session_state:
-    st.session_state.feedback = None
+    st.session_state.feedback = ""
 if "audio" not in st.session_state:
     st.session_state.audio = None
-# 新增：用來記錄畫面上目前輸入的數字
 if "current_input" not in st.session_state:
     st.session_state.current_input = ""
 
 # --- 處理按鈕動作的函式 ---
 def press_digit(digit):
-    # 限制最多只能輸入 3 位數（因為 9x9 最大也才 81）
     if len(st.session_state.current_input) < 3:
         st.session_state.current_input += str(digit)
 
@@ -91,9 +90,8 @@ def press_delete():
     st.session_state.current_input = st.session_state.current_input[:-1]
 
 def submit_answer():
-    # 沒輸入數字直接按送出的防呆
     if not st.session_state.current_input:
-        st.session_state.feedback = "⚠️ 請先點擊數字按鈕輸入答案喔！"
+        st.session_state.feedback = "⚠️ 請輸入答案！"
         st.session_state.audio = None
         return
 
@@ -111,48 +109,54 @@ def submit_answer():
         "結果": "⭕ 正確" if is_correct else "❌ 錯誤"
     })
 
-    # 設定回饋與音效
+    # 設定精簡版回饋 (顯示在同一行)
     if is_correct:
-        st.session_state.feedback = "🎉 太棒了，答對了！"
+        st.session_state.feedback = "⭕ 答對了！"
         st.session_state.audio = "correct"
     else:
-        st.session_state.feedback = f"差一點！剛剛 {n1} × {n2} 的答案是：{correct_ans}"
+        st.session_state.feedback = f"❌ 錯了！<br><span style='font-size:18px'>上一題 {n1}×{n2} = {correct_ans}</span>"
         st.session_state.audio = "wrong"
 
     # 產生下一題
     st.session_state.num1 = random.randint(2, 9)
     st.session_state.num2 = random.randint(1, 9)
-    
-    # 清空輸入框，準備下一題
     st.session_state.current_input = ""
 
 
 st.title("✖️ 九九乘法大挑戰")
 
-# --- 1. 顯示「上一題」的回饋與音效 ---
-if st.session_state.feedback:
-    if st.session_state.audio == "correct":
-        st.success(st.session_state.feedback)
-        components.html(get_audio_js("correct"), height=0)
-    elif st.session_state.audio == "wrong":
-        st.error(st.session_state.feedback)
-        components.html(get_audio_js("wrong"), height=0)
-    else:
-        st.warning(st.session_state.feedback) # 用於防呆提示
-    
-    st.session_state.feedback = None
-    st.session_state.audio = None
+# --- 1. 播放音效 ---
+if st.session_state.audio == "correct":
+    st.markdown(get_correct_audio(), unsafe_allow_html=True)
+elif st.session_state.audio == "wrong":
+    st.markdown(get_wrong_audio(), unsafe_allow_html=True)
+# 播放完立刻清空狀態，避免重複播放
+st.session_state.audio = None
 
-# --- 2. 顯示「最新」的題目 ---
+# --- 2. 顯示題目與回饋 (利用 HTML Flexbox 強制排在同一行左右兩側) ---
 n1 = st.session_state.num1
 n2 = st.session_state.num2
-st.markdown(f"<h1 style='text-align: center; font-size: 80px; margin: 10px 0;'>{n1} × {n2} = ？</h1>", unsafe_allow_html=True)
+
+# 根據對錯決定右側文字顏色
+feedback_color = "#28a745" if "⭕" in st.session_state.feedback else "#dc3545"
+
+st.markdown(f"""
+<div style='display: flex; justify-content: space-between; align-items: center; background-color: white; padding: 15px 25px; border-radius: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); margin-bottom: 20px;'>
+    <div style='font-size: 55px; font-weight: bold; color: #333;'>{n1} × {n2} =</div>
+    <div style='font-size: 26px; color: {feedback_color}; text-align: right; font-weight: bold;'>
+        {st.session_state.feedback}
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# 顯示完回饋後清空，避免畫面一直留著
+st.session_state.feedback = ""
 
 # --- 3. 虛擬輸入框 (顯示目前按下的數字) ---
 display_text = st.session_state.current_input if st.session_state.current_input else "?"
 st.markdown(f"<div class='input-screen'>{display_text}</div>", unsafe_allow_html=True)
 
-# --- 4. 虛擬數字九宮格按鈕 (類似手機撥號盤排列) ---
+# --- 4. 虛擬數字九宮格按鈕 ---
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -196,7 +200,7 @@ if st.session_state.logs:
         st.session_state.num1 = random.randint(2, 9)
         st.session_state.num2 = random.randint(1, 9)
         st.session_state.current_input = ""
-        st.session_state.feedback = None
-        st.rerun()
+        st.session_state.feedback = ""
+        # 由於用到了 callbacks，這裡不需要再寫 st.rerun()
 else:
     st.info("作答紀錄會即時顯示在這裡。")
