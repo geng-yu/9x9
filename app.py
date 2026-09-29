@@ -24,7 +24,7 @@ html, body, #root, .main,
     box-sizing: border-box !important;
 }
 
-/* 2. 限制寬度在 iPad 最佳視覺範圍，避免超出螢幕邊界 */
+/* 2. 限制寬度在 iPad 最佳視覺範圍 */
 .block-container {
     padding-top: 1.5rem !important;
     padding-bottom: 2rem !important;
@@ -191,7 +191,7 @@ elif st.session_state.audio == "wrong":
     st.markdown(get_wrong_audio(), unsafe_allow_html=True)
 st.session_state.audio = None
 
-# --- 2. 題卡顯示（完全無多餘換行縮排，防止 Markdown 誤判成程式碼） ---
+# --- 2. 題卡顯示 ---
 n1 = st.session_state.num1
 n2 = st.session_state.num2
 feedback_color = "#28a745" if "⭕" in st.session_state.feedback else "#dc3545"
@@ -231,21 +231,28 @@ with col3:
 
 st.divider()
 
-# --- 4. 記錄區 ---
-st.subheader("📊 本次練習記錄")
+# --- 4. 家長查看區（僅統計題數與顯示錯題） ---
+st.subheader("📊 練習與錯題記錄")
 
 if st.session_state.logs:
     df = pd.DataFrame(st.session_state.logs)
     total = len(df)
-    correct_count = len(df[df["結果"] == "⭕ 正確"])
-    accuracy = (correct_count / total) * 100
+    wrong_df = df[df["結果"] == "❌ 錯誤"]
+    wrong_count = len(wrong_df)
     
-    col_a, col_b, col_c = st.columns(3)
-    col_a.metric("已完成", f"{total} 題")
-    col_b.metric("答對", f"{correct_count} 題")
-    col_c.metric("正確率", f"{accuracy:.1f} %")
+    col_a, col_b = st.columns(2)
+    col_a.metric("已測驗題數", f"{total} 題")
+    col_b.metric("答錯題數", f"{wrong_count} 題")
     
-    st.dataframe(df.iloc[::-1], use_container_width=True)
+    if wrong_count > 0:
+        st.write("❌ **答錯題目明細：**")
+        st.dataframe(
+            wrong_df[["題目", "小孩填寫", "正確答案"]].iloc[::-1],
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.success("🎉 目前全部答對，沒有任何錯題！")
     
     if st.button("🔄 清空紀錄，重新開始", type="secondary"):
         st.session_state.logs = []
