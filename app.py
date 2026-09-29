@@ -10,9 +10,71 @@ import base64
 # 設定頁面排版
 st.set_page_config(page_title="九九乘法練習", layout="centered")
 
-# --- 自訂 CSS：把按鈕字體變大 ---
+# --- 自訂 CSS：鎖定畫面寬度、排版與大按鈕 ---
 st.markdown("""
     <style>
+    /* 1. 徹底隱藏水平捲軸，禁止 iPad 左右滑動 */
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+        overflow-x: hidden !important;
+        touch-action: pan-y !important; /* 只允許垂直滑動，禁止左右亂滑 */
+        width: 100%;
+        max-width: 100vw;
+    }
+
+    /* 2. 題卡整體容器 */
+    .question-card {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: white;
+        padding: 15px 20px;
+        border-radius: 15px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+        width: 100%;
+        box-sizing: border-box; /* 確保 padding 不會撐破外框 */
+    }
+
+    /* 3. 左中右強制三等份，保證畫面不跳動 */
+    .q-left, .q-mid, .q-right {
+        flex: 1 1 0; 
+        width: 33.33%;
+    }
+
+    /* 左側：題目 */
+    .q-left {
+        font-size: 55px;
+        font-weight: bold;
+        color: #333;
+        text-align: left;
+        white-space: nowrap; /* 不換行 */
+    }
+
+    /* 中間：輸入區 */
+    .q-mid {
+        text-align: center;
+    }
+    .q-mid-box {
+        display: inline-block;
+        font-size: 60px;
+        font-weight: bold;
+        background-color: #f0f2f6;
+        border-radius: 15px;
+        padding: 0 20px;
+        min-width: 110px;
+        height: 85px;
+        line-height: 85px;
+        color: #31333F;
+    }
+
+    /* 右側：回饋區 */
+    .q-right {
+        font-size: 22px;
+        text-align: right;
+        font-weight: bold;
+    }
+
+    /* 4. 把按鈕變大 */
     div[data-testid="stButton"] button {
         height: 80px;
         border-radius: 15px;
@@ -95,7 +157,7 @@ def submit_answer():
         "結果": "⭕ 正確" if is_correct else "❌ 錯誤"
     })
 
-    # 設定精簡版回饋
+    # 設定回饋
     if is_correct:
         st.session_state.feedback = "⭕ 答對了！"
         st.session_state.audio = "correct"
@@ -127,25 +189,27 @@ n2 = st.session_state.num2
 feedback_color = "#28a745" if "⭕" in st.session_state.feedback else "#dc3545"
 # 決定中間要顯示的文字 (沒輸入時顯示問號)
 display_text = st.session_state.current_input if st.session_state.current_input else "?"
+# 如果沒有回饋文字，塞入不換行空格(&nbsp;)來撐住排版空間，防止變形
+feedback_html = st.session_state.feedback if st.session_state.feedback else "&nbsp;"
 
 st.markdown(f"""
-<div style='display: flex; justify-content: space-between; align-items: center; background-color: white; padding: 15px 25px; border-radius: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); margin-bottom: 20px;'>
+<div class="question-card">
     
     <!-- 左側：題目 -->
-    <div style='flex: 1; font-size: 55px; font-weight: bold; color: #333; text-align: left;'>
+    <div class="q-left">
         {n1} × {n2} =
     </div>
     
     <!-- 中間：輸入顯示區 -->
-    <div style='flex: 1; text-align: center;'>
-        <div style='display: inline-block; font-size: 60px; font-weight: bold; background-color: #f0f2f6; border-radius: 15px; padding: 0 30px; min-width: 120px; height: 85px; line-height: 85px; color: #31333F;'>
+    <div class="q-mid">
+        <div class="q-mid-box">
             {display_text}
         </div>
     </div>
     
     <!-- 右側：對錯提示 -->
-    <div style='flex: 1; font-size: 24px; color: {feedback_color}; text-align: right; font-weight: bold;'>
-        {st.session_state.feedback}
+    <div class="q-right" style="color: {feedback_color};">
+        {feedback_html}
     </div>
     
 </div>
