@@ -10,10 +10,10 @@ import base64
 # 設定頁面排版
 st.set_page_config(page_title="九九乘法練習", layout="centered")
 
-# --- 自訂 CSS：鎖死左右滑動、置中卡片、大按鈕 ---
+# --- 自訂 CSS：手機/iPad/電腦全平台自適應 ---
 st.markdown("""
 <style>
-/* 1. 全局鎖死水平捲軸，iPad 無法左右滑動 */
+/* 1. 全局鎖死水平捲軸，防止手機/iPad 誤觸左右滑動 */
 html, body, #root, .main,
 [data-testid="stAppViewContainer"],
 [data-testid="stMainBlockContainer"],
@@ -24,76 +24,102 @@ html, body, #root, .main,
     box-sizing: border-box !important;
 }
 
-/* 2. 限制寬度在 iPad 最佳視覺範圍 */
+/* 2. 頁面邊距自適應（手機留邊更小、iPad/電腦維持合適寬度） */
 .block-container {
-    padding-top: 1.5rem !important;
+    padding-top: 1rem !important;
     padding-bottom: 2rem !important;
-    padding-left: 1rem !important;
-    padding-right: 1rem !important;
-    max-width: 620px !important;
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    max-width: 580px !important;
     margin: 0 auto !important;
 }
 
-/* 3. 題卡本體 */
+/* 3. 關鍵修正：強制 Streamlit 欄位在手機上維持橫向並排，不自動折成垂直單欄 */
+[data-testid="stHorizontalBlock"] {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+}
+
+[data-testid="stHorizontalBlock"] > div,
+[data-testid="stHorizontalBlock"] [data-testid="column"],
+[data-testid="stHorizontalBlock"] [data-testid="stColumn"] {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    width: 100% !important;
+}
+
+/* 4. 題卡本體：彈性大小自適應 */
 .question-card {
     display: flex;
     align-items: center;
     justify-content: space-between;
     background-color: #ffffff;
-    padding: 12px 18px;
+    padding: 10px 14px;
     border-radius: 16px;
     box-shadow: 0 3px 10px rgba(0,0,0,0.06);
     margin-bottom: 16px;
     width: 100%;
     box-sizing: border-box;
+    gap: 6px;
 }
 
-/* 左側：題目 */
+/* 左側：題目（手機自動適度微縮，不換行） */
 .q-left {
     flex: 1.1;
-    font-size: 42px;
+    font-size: clamp(26px, 7.5vw, 42px);
     font-weight: 800;
     color: #222222;
     text-align: left;
     white-space: nowrap;
 }
 
-/* 中間：輸入框 */
+/* 中間：答案輸入框 */
 .q-mid {
     flex: 0.9;
     text-align: center;
 }
 .q-mid-box {
-    display: inline-block;
-    font-size: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(26px, 8vw, 44px);
     font-weight: 800;
     background-color: #f1f3f7;
     border-radius: 12px;
-    width: 90px;
-    height: 64px;
-    line-height: 64px;
+    width: clamp(64px, 18vw, 90px);
+    height: clamp(52px, 14vw, 64px);
     color: #2b3445;
     text-align: center;
 }
 
-/* 右側：提示 */
+/* 右側：提示/回饋 */
 .q-right {
     flex: 1;
-    font-size: 18px;
+    font-size: clamp(14px, 4vw, 18px);
     font-weight: bold;
     text-align: right;
-    line-height: 1.3;
+    line-height: 1.25;
+    word-break: break-word;
 }
 
-/* 4. 虛擬大按鈕 */
+/* 5. 虛擬大按鈕：高度與字級隨螢幕彈性調整 */
+div[data-testid="stButton"] {
+    margin-bottom: 8px !important;
+}
 div[data-testid="stButton"] button {
-    height: 72px;
-    border-radius: 14px;
-    border: 1px solid #e2e8f0;
+    height: clamp(58px, 13vw, 72px) !important;
+    border-radius: 14px !important;
+    border: 1px solid #e2e8f0 !important;
+    padding: 0 !important;
+    width: 100% !important;
 }
 div[data-testid="stButton"] button p {
-    font-size: 30px !important;
+    font-size: clamp(22px, 6vw, 30px) !important;
     font-weight: bold !important;
+    margin: 0 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -174,7 +200,7 @@ def submit_answer():
         st.session_state.feedback = "⭕ 答對了！"
         st.session_state.audio = "correct"
     else:
-        st.session_state.feedback = f"❌ 答錯了！<br><span style='font-size:15px; color:#555;'>正解: {correct_ans}</span>"
+        st.session_state.feedback = f"❌ 答錯了！<br><span style='font-size:14px; color:#555;'>正解: {correct_ans}</span>"
         st.session_state.audio = "wrong"
 
     # 換下一題
