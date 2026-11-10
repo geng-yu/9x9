@@ -159,7 +159,7 @@ if "logs" not in st.session_state:
     st.session_state.logs = []
 if "num1" not in st.session_state:
     st.session_state.num1 = random.randint(2, 9)
-    st.session_state.num2 = random.randint(1, 9)
+    st.session_state.num2 = random.randint(2, 9)
 if "feedback" not in st.session_state:
     st.session_state.feedback = ""
 if "audio" not in st.session_state:
