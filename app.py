@@ -205,7 +205,7 @@ def submit_answer():
 
     # 換下一題
     st.session_state.num1 = random.randint(2, 9)
-    st.session_state.num2 = random.randint(1, 9)
+    st.session_state.num2 = random.randint(2, 9)
     st.session_state.current_input = ""
 
 st.title("✖️ 九九乘法大挑戰")
